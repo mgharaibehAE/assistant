@@ -2,10 +2,9 @@ import streamlit as st
 import openai
 import pyperclip
 import time
-import speech_recognition as sr
 
 # Streamlit app configuration
-st.set_page_config(page_title="ChatGPT Clone", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
 
 # Constants from secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -30,20 +29,23 @@ with st.sidebar:
                 del st.session_state[key]
         st.rerun()
 
-# Authentication
-if "authenticated" not in st.session_state or not st.session_state.authenticated:
+# Authentication logic (fixed)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
     pwd_input = st.text_input("Enter Password", type="password")
     if st.button("Login"):
         if pwd_input == PASSWORD:
             st.session_state.authenticated = True
-            st.success("Login successful!")
+            st.success("Login successful! Refreshing...")
             time.sleep(1)
             st.rerun()
         else:
             st.error("Incorrect password")
     st.stop()
 
-st.title("ChatGPT")
+st.title("Cleco Regulatory Assistant")
 
 # Setup OpenAI API key
 openai.api_key = OPENAI_API_KEY
@@ -56,25 +58,6 @@ if "messages" not in st.session_state:
 if "thread_id" not in st.session_state:
     thread = openai.beta.threads.create()
     st.session_state.thread_id = thread.id
-
-# Function for voice input
-def listen_to_microphone():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening...")
-        audio = recognizer.listen(source)
-    try:
-        return recognizer.recognize_google(audio)
-    except Exception as e:
-        st.error("Sorry, I couldn't understand that.")
-        return None
-
-# Voice input button
-if st.button("🎤 Speak"):
-    spoken_text = listen_to_microphone()
-    if spoken_text:
-        st.session_state.messages.append({"role": "user", "content": spoken_text})
-        st.rerun()
 
 # Display previous messages
 for idx, message in enumerate(st.session_state.messages):

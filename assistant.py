@@ -17,15 +17,20 @@ with st.sidebar:
         for key in ["messages", "thread_id", "authenticated"]:
             if key in st.session_state:
                 del st.session_state[key]
-        st.experimental_rerun()
+        st.rerun()
 
-# Authentication
-if "authenticated" not in st.session_state or not st.session_state.authenticated:
+# Authentication logic (fixed)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
     pwd_input = st.text_input("Enter Password", type="password")
     if st.button("Login"):
         if pwd_input == PASSWORD:
             st.session_state.authenticated = True
-            st.experimental_rerun()
+            st.success("Login successful! Refreshing...")
+            time.sleep(1)
+            st.rerun()
         else:
             st.error("Incorrect password")
     st.stop()

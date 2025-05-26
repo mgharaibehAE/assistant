@@ -4,7 +4,7 @@ import pyperclip
 import time
 
 # Streamlit app configuration
-st.set_page_config(page_title="ChatGPT Clone", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
 
 # Constants from secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -35,7 +35,7 @@ if not st.session_state.authenticated:
             st.error("Incorrect password")
     st.stop()
 
-st.title("ChatGPT")
+st.title("Cleco Regulatory Assistant")
 
 # Setup OpenAI API key
 openai.api_key = OPENAI_API_KEY

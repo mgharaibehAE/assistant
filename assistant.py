@@ -11,8 +11,18 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
 PASSWORD = st.secrets["login"]["password"]
 
-# Sidebar for clearing chat
+# Sidebar for clearing chat and additional information
 with st.sidebar:
+    st.markdown("""
+    **Disclaimer:** Regulatory Assistant can make mistakes. Check important info carefully.
+    """)
+    st.markdown("""
+    **Instructions:**
+    - Enter your queries clearly.
+    - Use the "Clear Chat" button to reset your conversation.
+    - Copy important responses using provided buttons.
+    - Export chat history if needed.
+    """)
     if st.button("Clear Chat"):
         for key in ["messages", "thread_id", "authenticated"]:
             if key in st.session_state:

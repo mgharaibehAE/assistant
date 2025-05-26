@@ -20,7 +20,7 @@ with st.sidebar:
         st.experimental_rerun()
 
 # Authentication
-if "authenticated" not in st.session_state:
+if "authenticated" not in st.session_state or not st.session_state.authenticated:
     pwd_input = st.text_input("Enter Password", type="password")
     if st.button("Login"):
         if pwd_input == PASSWORD:

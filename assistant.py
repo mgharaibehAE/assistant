@@ -9,7 +9,7 @@ st.set_page_config(page_title="ChatGPT Clone", page_icon="🤖", layout="centere
 # Constants from secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
-PASSWORD = st.secrets["PASSWORD"]
+PASSWORD = st.secrets["login"]["password"]
 
 # Sidebar for clearing chat
 with st.sidebar:

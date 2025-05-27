@@ -2,6 +2,9 @@ import streamlit as st
 import openai
 import pyperclip
 import time
+import requests
+from io import BytesIO
+from docx import Document
 
 # Streamlit app configuration
 st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
@@ -29,7 +32,7 @@ with st.sidebar:
                 del st.session_state[key]
         st.rerun()
 
-# Authentication logic
+# Authentication logic (fixed)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -48,9 +51,9 @@ if not st.session_state.authenticated:
 st.title("Cleco Regulatory Assistant")
 
 # Tabs setup
-tabs = st.tabs(["Chat", "Document Summaries"])
+chat_tab, summary_tab = st.tabs(["Chat", "Document Summaries"])
 
-with tabs[0]:
+with chat_tab:
     # Setup OpenAI API key
     openai.api_key = OPENAI_API_KEY
 
@@ -129,11 +132,30 @@ with tabs[0]:
 
     export_chat_history(st.session_state.messages)
 
-with tabs[1]:
-    document_names = [f"Document_{i+1}" for i in range(17)]
-    selected_doc = st.selectbox("Select a document:", document_names)
+with summary_tab:
+    GITHUB_USER = "mgharaibehAE"
+    GITHUB_REPO = "assistant"
+    BRANCH = "main"
+    DOCS_FOLDER = "docs"
 
-    summaries = {doc: f"Summary for {doc} will be provided here." for doc in document_names}
+    api_url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{DOCS_FOLDER}?ref={BRANCH}"
 
-    if st.button("Go to Summary"):
-        st.markdown(summaries[selected_doc])
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        files = [file['name'] for file in response.json() if file['name'].endswith('.docx')]
+
+        selected_file = st.selectbox("Select a document:", files)
+
+        if st.button("Go to Summary"):
+            file_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{BRANCH}/{DOCS_FOLDER}/{selected_file}"
+            file_response = requests.get(file_url)
+
+            if file_response.status_code == 200:
+                doc_stream = BytesIO(file_response.content)
+                doc = Document(doc_stream)
+                content = "\n\n".join(para.text for para in doc.paragraphs)
+                st.markdown(content, unsafe_allow_html=True)
+            else:
+                st.error("Failed to retrieve document content.")
+    else:
+        st.error("Failed to fetch file list from GitHub.")

@@ -29,7 +29,7 @@ with st.sidebar:
                 del st.session_state[key]
         st.rerun()
 
-# Authentication logic (fixed)
+# Authentication logic
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -47,10 +47,10 @@ if not st.session_state.authenticated:
 
 st.title("Cleco Regulatory Assistant")
 
-# Tabs
-chat_tab, summary_tab = st.tabs(["Chat", "Document Summaries"])
+# Tabs setup
+tabs = st.tabs(["Chat", "Document Summaries"])
 
-with chat_tab:
+with tabs[0]:
     # Setup OpenAI API key
     openai.api_key = OPENAI_API_KEY
 
@@ -129,11 +129,11 @@ with chat_tab:
 
     export_chat_history(st.session_state.messages)
 
-with summary_tab:
-    document_names = [f"Document_{i+1}" for i in range(17)]  # replace with actual document names
+with tabs[1]:
+    document_names = [f"Document_{i+1}" for i in range(17)]
     selected_doc = st.selectbox("Select a document:", document_names)
 
+    summaries = {doc: f"Summary for {doc} will be provided here." for doc in document_names}
+
     if st.button("Go to Summary"):
-        st.write(f"Summary for {selected_doc}:")
-        # Placeholder for document summaries
-        st.info("Document summary goes here.")
+        st.markdown(summaries[selected_doc])

@@ -1,3 +1,4 @@
 streamlit
 openai
 pyperclip
+python-docx

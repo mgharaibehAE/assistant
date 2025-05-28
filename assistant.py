@@ -11,7 +11,7 @@ st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
 PASSWORD = st.secrets["login"]["password"]
-GITHUB_API_URL = "https://api.github.com/repos/mgharaibehAE/assistant/contents/docs"
+GITHUB_API_URL = "https://api.github.com/repos/mgharaibehAE/assistant/docs"
 
 # Sidebar for clearing chat and additional information
 with st.sidebar:

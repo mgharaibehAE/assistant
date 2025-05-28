@@ -8,7 +8,6 @@ from docx import Document
 
 # Streamlit app configuration
 st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
-@@ -29,7 +32,7 @@
                 del st.session_state[key]
         st.rerun()
 

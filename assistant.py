@@ -1,37 +1,38 @@
 import streamlit as st
 import openai
-import pyperclip
-import time
 import requests
+from io import BytesIO
+from docx import Document
+import time
 
-# Streamlit app configuration
-st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
+# Streamlit configuration
+st.set_page_config(page_title="Cleco Regulatory Assistant", page_icon="🤖", layout="centered")
 
 # Constants from secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
 PASSWORD = st.secrets["login"]["password"]
-GITHUB_API_URL = "https://api.github.com/repos/mgharaibehAE/assistant/docs"
+GITHUB_API_URL = "https://api.github.com/repos/mgharaibehAE/assistant/contents/docs"
+GITHUB_TOKEN = st.secrets["github"]["token"]
 
-# Sidebar for clearing chat and additional information
+# Sidebar
 with st.sidebar:
     st.markdown("""
-    **Disclaimer:** Regulatory Assistant can make mistakes. Check important info carefully.
+    **Disclaimer:** Regulatory Assistant can make mistakes. Verify important information.
     """)
     st.markdown("""
     **Instructions:**
-    - Enter your queries clearly.
-    - Use the "Clear Chat" button to reset your conversation.
-    - Copy important responses using provided buttons.
-    - Export chat history if needed.
+    - Clearly enter your queries.
+    - Use "Clear Chat" to reset the conversation.
+    - Copy responses with provided buttons.
+    - Export chat history if required.
     """)
     if st.button("Clear Chat"):
         for key in ["messages", "thread_id", "authenticated"]:
-            if key in st.session_state:
-                del st.session_state[key]
+            st.session_state.pop(key, None)
         st.rerun()
 
-# Authentication logic
+# Authentication
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -47,36 +48,44 @@ if not st.session_state.authenticated:
             st.error("Incorrect password")
     st.stop()
 
-# Setup OpenAI API key
+st.title("Cleco Regulatory Assistant")
+
+# Clipboard function
+clipboard_js = """
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
+}
+</script>
+"""
+st.markdown(clipboard_js, unsafe_allow_html=True)
+
+def clipboard_button(text, label):
+    st.markdown(f"<button onclick=\"copyToClipboard('{text}')\">{label}</button>", unsafe_allow_html=True)
+
+# OpenAI setup
 openai.api_key = OPENAI_API_KEY
 
-# Tabs for different functionalities
-tab1, tab2 = st.tabs(["Chat", "Document Summary"])
+# Initialize chat history and thread
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Chat functionality in first tab
-with tab1:
-    st.title("Cleco Regulatory Assistant")
+if "thread_id" not in st.session_state:
+    thread = openai.beta.threads.create()
+    st.session_state.thread_id = thread.id
 
-    # Initialize message history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# Tabs for chat and document summary
+tab_chat, tab_docs = st.tabs(["Chat Assistant", "Document Summary"])
 
-    # Initialize thread
-    if "thread_id" not in st.session_state:
-        thread = openai.beta.threads.create()
-        st.session_state.thread_id = thread.id
-
-    # Display previous messages
+# Chat Tab
+with tab_chat:
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if message["role"] == "assistant":
-                if st.button(f"Copy Response {idx}", key=f"copy_{idx}"):
-                    pyperclip.copy(message["content"])
-                    st.toast("Copied to clipboard!")
+                clipboard_button(message["content"], f"Copy Response {idx}")
 
-    # User input and interaction
-    if prompt := st.chat_input("Ask a question..."):
+    if prompt := st.chat_input("Ask your question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -101,50 +110,32 @@ with tab1:
                 )
 
         if run.status == "completed":
-            messages = openai.beta.threads.messages.list(
-                thread_id=st.session_state.thread_id
-            )
-
-            response = ""
-            for msg in messages.data:
-                if msg.role == "assistant":
-                    response = msg.content[0].text.value
-                    break
+            messages = openai.beta.threads.messages.list(thread_id=st.session_state.thread_id)
+            response = next((msg.content[0].text.value for msg in messages.data if msg.role == "assistant"), "")
 
             st.session_state.messages.append({"role": "assistant", "content": response})
 
             with st.chat_message("assistant"):
                 st.markdown(response)
-                if st.button("Copy Response", key=f"copy_latest_{len(st.session_state.messages)}"):
-                    pyperclip.copy(response)
-                    st.toast("Copied to clipboard!")
+                clipboard_button(response, "Copy Response")
         else:
-            st.error("The assistant run failed. Please try again.")
+            st.error("Assistant failed to respond. Please retry.")
 
-    # Export chat history
-    def export_chat_history(messages):
-        chat_history = "\n".join(
-            f"{msg['role'].capitalize()}: {msg['content']}" for msg in messages
-        )
-        st.download_button(
-            "Download Chat History", chat_history, file_name="chat_history.txt"
-        )
+    chat_history = "\n".join(f"{msg['role'].capitalize()}: {msg['content']}" for msg in st.session_state.messages)
+    st.download_button("Export Chat History", chat_history, file_name="chat_history.txt")
 
-    export_chat_history(st.session_state.messages)
+# Document Summary Tab
+with tab_docs:
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    response = requests.get(GITHUB_API_URL, headers=headers)
 
-# Document summary functionality in second tab
-with tab2:
-    st.header("Document Summary")
-
-    response = requests.get(GITHUB_API_URL)
     if response.status_code == 200:
         files = response.json()
-        word_files = [file['name'] for file in files if file['name'].endswith(".docx")]
+        doc_files = [file['name'] for file in files if file['name'].endswith(".docx")]
 
-        selected_file = st.selectbox("Select a Document", word_files)
-        if st.button("Go to Summary"):
-            st.markdown(f"Summary for **{selected_file}**:")
-            # Placeholder for the summary content you will provide later
-            st.write("(Your summary text goes here.)")
+        selected_file = st.selectbox("Choose a Document", doc_files)
+        if st.button("Show Summary"):
+            st.markdown(f"### Summary for {selected_file}")
+            st.info("Summary content will be provided here.")
     else:
-        st.error("Failed to fetch document list from GitHub.")
+        st.error(f"Failed to load documents. Error: {response.status_code}, {response.json().get('message')}")

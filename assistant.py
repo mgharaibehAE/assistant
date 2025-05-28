@@ -1,10 +1,9 @@
 import streamlit as st
 import openai
-import pyperclip
-import time
 import requests
 from io import BytesIO
 from docx import Document
+import time
 
 # Streamlit app configuration
 st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
@@ -50,86 +49,91 @@ if not st.session_state.authenticated:
 
 st.title("Cleco Regulatory Assistant")
 
-# Tabs setup
-chat_tab, summary_tab = st.tabs(["Chat", "Document Summaries"])
+# Clipboard button function (IMPORTANT: Add this here!)
+def clipboard_button(text, label):
+    st.markdown(
+        f"""
+        <button onclick="navigator.clipboard.writeText(`{text}`).then(() => alert('Copied to clipboard!'))">
+            {label}
+        </button>
+        """,
+        unsafe_allow_html=True
+    )
 
-with chat_tab:
-    # Setup OpenAI API key
-    openai.api_key = OPENAI_API_KEY
+# Setup OpenAI API key
+openai.api_key = OPENAI_API_KEY
 
-    # Initialize message history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# Initialize message history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # Initialize thread
-    if "thread_id" not in st.session_state:
-        thread = openai.beta.threads.create()
-        st.session_state.thread_id = thread.id
+# Initialize thread
+if "thread_id" not in st.session_state:
+    thread = openai.beta.threads.create()
+    st.session_state.thread_id = thread.id
 
-    # Display previous messages
-    for idx, message in enumerate(st.session_state.messages):
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if message["role"] == "assistant":
-                clipboard_button(message["content"], f"Copy Response {idx}")
+# Display previous messages
+for idx, message in enumerate(st.session_state.messages):
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        if message["role"] == "assistant":
+            clipboard_button(message["content"], f"Copy Response {idx}")
 
+# User input and interaction
+if prompt := st.chat_input("Ask a question..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    # User input and interaction
-    if prompt := st.chat_input("Ask a question..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    openai.beta.threads.messages.create(
+        thread_id=st.session_state.thread_id,
+        role="user",
+        content=prompt
+    )
 
-        openai.beta.threads.messages.create(
-            thread_id=st.session_state.thread_id,
-            role="user",
-            content=prompt
-        )
+    run = openai.beta.threads.runs.create(
+        thread_id=st.session_state.thread_id,
+        assistant_id=ASSISTANT_ID
+    )
 
-        run = openai.beta.threads.runs.create(
-            thread_id=st.session_state.thread_id,
-            assistant_id=ASSISTANT_ID
-        )
-
-        with st.spinner("Assistant is typing..."):
-            while run.status not in ("completed", "failed"):
-                time.sleep(1)
-                run = openai.beta.threads.runs.retrieve(
-                    thread_id=st.session_state.thread_id,
-                    run_id=run.id
-                )
-
-        if run.status == "completed":
-            messages = openai.beta.threads.messages.list(
-                thread_id=st.session_state.thread_id
+    with st.spinner("Assistant is typing..."):
+        while run.status not in ("completed", "failed"):
+            time.sleep(1)
+            run = openai.beta.threads.runs.retrieve(
+                thread_id=st.session_state.thread_id,
+                run_id=run.id
             )
 
-            response = ""
-            for msg in messages.data:
-                if msg.role == "assistant":
-                    response = msg.content[0].text.value
-                    break
-
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-            with st.chat_message("assistant"):
-                st.markdown(response)
-                if st.button("Copy Response", key=f"copy_latest_{len(st.session_state.messages)}"):
-                    pyperclip.copy(response)
-                    st.toast("Copied to clipboard!")
-        else:
-            st.error("The assistant run failed. Please try again.")
-
-    # Export chat history
-    def export_chat_history(messages):
-        chat_history = "\n".join(
-            f"{msg['role'].capitalize()}: {msg['content']}" for msg in messages
-        )
-        st.download_button(
-            "Download Chat History", chat_history, file_name="chat_history.txt"
+    if run.status == "completed":
+        messages = openai.beta.threads.messages.list(
+            thread_id=st.session_state.thread_id
         )
 
-    export_chat_history(st.session_state.messages)
+        response = ""
+        for msg in messages.data:
+            if msg.role == "assistant":
+                response = msg.content[0].text.value
+                break
+
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+        with st.chat_message("assistant"):
+            st.markdown(response)
+            clipboard_button(response, "Copy Response")
+    else:
+        st.error("The assistant run failed. Please try again.")
+
+# Export chat history
+def export_chat_history(messages):
+    chat_history = "\n".join(
+        f"{msg['role'].capitalize()}: {msg['content']}" for msg in messages
+    )
+    st.download_button(
+        "Download Chat History", chat_history, file_name="chat_history.txt"
+    )
+
+export_chat_history(st.session_state.messages)
+
 
 with summary_tab:
     GITHUB_USER = "mgharaibehAE"

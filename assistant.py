@@ -1,5 +1,6 @@
 import streamlit as st
 import openai
+import pyperclip
 import time
 import requests
 from io import BytesIO
@@ -69,6 +70,9 @@ with chat_tab:
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message["role"] == "assistant":
+                clipboard_button(message["content"], f"Copy Response {idx}")
+
 
     # User input and interaction
     if prompt := st.chat_input("Ask a question..."):
@@ -110,6 +114,9 @@ with chat_tab:
 
             with st.chat_message("assistant"):
                 st.markdown(response)
+                if st.button("Copy Response", key=f"copy_latest_{len(st.session_state.messages)}"):
+                    pyperclip.copy(response)
+                    st.toast("Copied to clipboard!")
         else:
             st.error("The assistant run failed. Please try again.")
 

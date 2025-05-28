@@ -8,51 +8,23 @@ from docx import Document
 
 # Streamlit app configuration
 st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
-
-# Constants from secrets
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
-PASSWORD = st.secrets["login"]["password"]
-
-# Sidebar for clearing chat and additional information
-with st.sidebar:
-    st.markdown("""
-    **Disclaimer:** Regulatory Assistant can make mistakes. Check important info carefully.
-    """)
-    st.markdown("""
-    **Instructions:**
-    - Enter your queries clearly.
-    - Use the "Clear Chat" button to reset your conversation.
-    - Copy important responses using provided buttons.
-    - Export chat history if needed.
-    """)
-    if st.button("Clear Chat"):
-        for key in ["messages", "thread_id", "authenticated"]:
-            if key in st.session_state:
+@@ -29,7 +32,7 @@
                 del st.session_state[key]
         st.rerun()
 
+# Authentication logic
 # Authentication logic (fixed)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-if not st.session_state.authenticated:
-    pwd_input = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd_input == PASSWORD:
-            st.session_state.authenticated = True
-            st.success("Login successful! Refreshing...")
-            time.sleep(1)
-            st.rerun()
-        else:
-            st.error("Incorrect password")
-    st.stop()
-
+@@ -48,92 +51,111 @@
 st.title("Cleco Regulatory Assistant")
 
 # Tabs setup
+tabs = st.tabs(["Chat", "Document Summaries"])
 chat_tab, summary_tab = st.tabs(["Chat", "Document Summaries"])
 
+with tabs[0]:
 with chat_tab:
     # Setup OpenAI API key
     openai.api_key = OPENAI_API_KEY
@@ -71,8 +43,9 @@ with chat_tab:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if message["role"] == "assistant":
-                clipboard_button(message["content"], f"Copy Response {idx}")
-
+                if st.button(f"Copy Response {idx}", key=f"copy_{idx}"):
+                    pyperclip.copy(message["content"])
+                    st.toast("Copied to clipboard!")
 
     # User input and interaction
     if prompt := st.chat_input("Ask a question..."):
@@ -131,6 +104,14 @@ with chat_tab:
 
     export_chat_history(st.session_state.messages)
 
+with tabs[1]:
+    document_names = [f"Document_{i+1}" for i in range(17)]
+    selected_doc = st.selectbox("Select a document:", document_names)
+
+    summaries = {doc: f"Summary for {doc} will be provided here." for doc in document_names}
+
+    if st.button("Go to Summary"):
+        st.markdown(summaries[selected_doc])
 with summary_tab:
     GITHUB_USER = "mgharaibehAE"
     GITHUB_REPO = "assistant"

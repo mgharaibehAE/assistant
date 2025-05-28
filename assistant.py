@@ -24,7 +24,6 @@ with st.sidebar:
     **Instructions:**
     - Clearly enter your queries.
     - Use "Clear Chat" to reset the conversation.
-    - Copy responses with provided buttons.
     - Export chat history if required.
     """)
     if st.button("Clear Chat"):
@@ -50,19 +49,6 @@ if not st.session_state.authenticated:
 
 st.title("Cleco Regulatory Assistant")
 
-# Clipboard function
-clipboard_js = """
-<script>
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
-}
-</script>
-"""
-st.markdown(clipboard_js, unsafe_allow_html=True)
-
-def clipboard_button(text, label):
-    st.markdown(f"<button onclick=\"copyToClipboard('{text}')\">{label}</button>", unsafe_allow_html=True)
-
 # OpenAI setup
 openai.api_key = OPENAI_API_KEY
 
@@ -79,11 +65,9 @@ tab_chat, tab_docs = st.tabs(["Chat Assistant", "Document Summary"])
 
 # Chat Tab
 with tab_chat:
-    for idx, message in enumerate(st.session_state.messages):
+    for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if message["role"] == "assistant":
-                clipboard_button(message["content"], f"Copy Response {idx}")
 
     if prompt := st.chat_input("Ask your question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -117,7 +101,6 @@ with tab_chat:
 
             with st.chat_message("assistant"):
                 st.markdown(response)
-                clipboard_button(response, "Copy Response")
         else:
             st.error("Assistant failed to respond. Please retry.")
 
@@ -134,8 +117,15 @@ with tab_docs:
         doc_files = [file['name'] for file in files if file['name'].endswith(".docx")]
 
         selected_file = st.selectbox("Choose a Document", doc_files)
-        if st.button("Show Summary"):
-            st.markdown(f"### Summary for {selected_file}")
-            st.info("Summary content will be provided here.")
+        if st.button("Go to Summary"):
+            file_url = next((file['download_url'] for file in files if file['name'] == selected_file), None)
+            if file_url:
+                file_content = requests.get(file_url).content
+                document = Document(BytesIO(file_content))
+                doc_text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+                st.markdown(f"### Content of {selected_file}")
+                st.write(doc_text)
+            else:
+                st.error("Document not found.")
     else:
         st.error(f"Failed to load documents. Error: {response.status_code}, {response.json().get('message')}")

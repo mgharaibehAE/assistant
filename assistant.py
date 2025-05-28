@@ -71,7 +71,8 @@ with chat_tab:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if message["role"] == "assistant":
-                st.button(f"Copy Response {idx}", key=f"copy_{idx}", on_click=lambda: st.clipboard.write(message["content"]))
+                clipboard_button(message["content"], f"Copy Response {idx}")
+
 
     # User input and interaction
     if prompt := st.chat_input("Ask a question..."):

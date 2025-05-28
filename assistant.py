@@ -137,7 +137,7 @@ with summary_tab:
     BRANCH = "main"
     DOCS_FOLDER = "docs"
 
-    api_url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{DOCS_FOLDER}?ref={BRANCH}"
+    api_url = f"https://github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{DOCS_FOLDER}?ref={BRANCH}"
 
     response = requests.get(api_url)
 

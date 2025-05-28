@@ -71,9 +71,7 @@ with chat_tab:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if message["role"] == "assistant":
-                if st.button(f"Copy Response {idx}", key=f"copy_{idx}"):
-                    pyperclip.copy(message["content"])
-                    st.toast("Copied to clipboard!")
+                st.button(f"Copy Response {idx}", key=f"copy_{idx}", on_click=lambda: st.clipboard.write(message["content"]))
 
     # User input and interaction
     if prompt := st.chat_input("Ask a question..."):

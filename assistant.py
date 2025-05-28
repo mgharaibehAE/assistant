@@ -3,30 +3,59 @@ import openai
 import pyperclip
 import time
 import requests
-from io import BytesIO
-from docx import Document
 
 # Streamlit app configuration
 st.set_page_config(page_title="Assistant", page_icon="🤖", layout="centered")
+
+# Constants from secrets
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
+PASSWORD = st.secrets["login"]["password"]
+GITHUB_API_URL = "https://api.github.com/repos/mgharaibehAE/assistant/contents/docs"
+
+# Sidebar for clearing chat and additional information
+with st.sidebar:
+    st.markdown("""
+    **Disclaimer:** Regulatory Assistant can make mistakes. Check important info carefully.
+    """)
+    st.markdown("""
+    **Instructions:**
+    - Enter your queries clearly.
+    - Use the "Clear Chat" button to reset your conversation.
+    - Copy important responses using provided buttons.
+    - Export chat history if needed.
+    """)
+    if st.button("Clear Chat"):
+        for key in ["messages", "thread_id", "authenticated"]:
+            if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
 
 # Authentication logic
-# Authentication logic (fixed)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-@@ -48,92 +51,111 @@
-st.title("Cleco Regulatory Assistant")
+if not st.session_state.authenticated:
+    pwd_input = st.text_input("Enter Password", type="password")
+    if st.button("Login"):
+        if pwd_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.success("Login successful! Refreshing...")
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.error("Incorrect password")
+    st.stop()
 
-# Tabs setup
-tabs = st.tabs(["Chat", "Document Summaries"])
-chat_tab, summary_tab = st.tabs(["Chat", "Document Summaries"])
+# Setup OpenAI API key
+openai.api_key = OPENAI_API_KEY
 
-with tabs[0]:
-with chat_tab:
-    # Setup OpenAI API key
-    openai.api_key = OPENAI_API_KEY
+# Tabs for different functionalities
+tab1, tab2 = st.tabs(["Chat", "Document Summary"])
+
+# Chat functionality in first tab
+with tab1:
+    st.title("Cleco Regulatory Assistant")
 
     # Initialize message history
     if "messages" not in st.session_state:
@@ -103,38 +132,19 @@ with chat_tab:
 
     export_chat_history(st.session_state.messages)
 
-with tabs[1]:
-    document_names = [f"Document_{i+1}" for i in range(17)]
-    selected_doc = st.selectbox("Select a document:", document_names)
+# Document summary functionality in second tab
+with tab2:
+    st.header("Document Summary")
 
-    summaries = {doc: f"Summary for {doc} will be provided here." for doc in document_names}
-
-    if st.button("Go to Summary"):
-        st.markdown(summaries[selected_doc])
-with summary_tab:
-    GITHUB_USER = "mgharaibehAE"
-    GITHUB_REPO = "assistant"
-    BRANCH = "main"
-    DOCS_FOLDER = "docs"
-
-    api_url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{DOCS_FOLDER}?ref={BRANCH}"
-
-    response = requests.get(api_url)
+    response = requests.get(GITHUB_API_URL)
     if response.status_code == 200:
-        files = [file['name'] for file in response.json() if file['name'].endswith('.docx')]
+        files = response.json()
+        word_files = [file['name'] for file in files if file['name'].endswith(".docx")]
 
-        selected_file = st.selectbox("Select a document:", files)
-
+        selected_file = st.selectbox("Select a Document", word_files)
         if st.button("Go to Summary"):
-            file_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{BRANCH}/{DOCS_FOLDER}/{selected_file}"
-            file_response = requests.get(file_url)
-
-            if file_response.status_code == 200:
-                doc_stream = BytesIO(file_response.content)
-                doc = Document(doc_stream)
-                content = "\n\n".join(para.text for para in doc.paragraphs)
-                st.markdown(content, unsafe_allow_html=True)
-            else:
-                st.error("Failed to retrieve document content.")
+            st.markdown(f"Summary for **{selected_file}**:")
+            # Placeholder for the summary content you will provide later
+            st.write("(Your summary text goes here.)")
     else:
-        st.error("Failed to fetch file list from GitHub.")
+        st.error("Failed to fetch document list from GitHub.")

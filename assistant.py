@@ -3,7 +3,12 @@ import openai
 import requests
 from io import BytesIO
 from docx import Document
+import PyPDF2
 import time
+import pytesseract
+from pdf2image import convert_from_bytes
+from PIL import Image
+import io
 
 # Streamlit configuration
 st.set_page_config(page_title="Cleco Regulatory Assistant", page_icon="🤖", layout="centered")
@@ -27,7 +32,7 @@ with st.sidebar:
     - Export chat history if required.
     """)
     if st.button("Clear Chat"):
-        for key in ["messages", "thread_id", "authenticated"]:
+        for key in ["messages", "thread_id", "authenticated", "file_thread_id", "file_chat_messages"]:
             st.session_state.pop(key, None)
         st.rerun()
 
@@ -52,19 +57,18 @@ st.title("Cleco Regulatory Assistant")
 # OpenAI setup
 openai.api_key = OPENAI_API_KEY
 
-# Initialize chat history and thread
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Tabs for chat, document summary, and document chat
+tab_chat, tab_docs, tab_upload = st.tabs(["Chat Assistant", "Document Summary", "Chat with Document"])
 
-if "thread_id" not in st.session_state:
-    thread = openai.beta.threads.create()
-    st.session_state.thread_id = thread.id
-
-# Tabs for chat and document summary
-tab_chat, tab_docs = st.tabs(["Chat Assistant", "Document Summary"])
-
-# Chat Tab
+# First Tab (General Chat)
 with tab_chat:
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    if "thread_id" not in st.session_state:
+        thread = openai.beta.threads.create()
+        st.session_state.thread_id = thread.id
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -129,3 +133,74 @@ with tab_docs:
                 st.error("Document not found.")
     else:
         st.error(f"Failed to load documents. Error: {response.status_code}, {response.json().get('message')}")
+
+with tab_upload:
+    st.header("Upload and Chat with Document")
+
+    uploaded_file = st.file_uploader("Upload a Word (.docx) or PDF (.pdf) file", type=["docx", "pdf"])
+
+    if uploaded_file:
+        # Detect new file upload and reset session states
+        if 'last_uploaded_file_name' not in st.session_state or st.session_state.last_uploaded_file_name != uploaded_file.name:
+            st.session_state.file_chat_messages = []
+            st.session_state.file_thread_id = None
+            st.session_state.last_uploaded_file_name = uploaded_file.name
+
+        if "file_thread_id" not in st.session_state or st.session_state.file_thread_id is None:
+            file_thread = openai.beta.threads.create()
+            st.session_state.file_thread_id = file_thread.id
+
+            if uploaded_file.type == "application/pdf":
+                file_bytes = uploaded_file.read()
+                images = convert_from_bytes(file_bytes)
+                file_text = ""
+                for image in images:
+                    text = pytesseract.image_to_string(image)
+                    file_text += text + "\n"
+            else:
+                doc = Document(uploaded_file)
+                file_text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+
+            openai.beta.threads.messages.create(
+                thread_id=st.session_state.file_thread_id,
+                role="user",
+                content=f"The following document content is provided for context:\n\n{file_text}"
+            )
+
+        # Display chat messages
+        for message in st.session_state.file_chat_messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # User input and interaction
+        if user_input := st.chat_input("Ask questions about the uploaded document..."):
+            st.session_state.file_chat_messages.append({"role": "user", "content": user_input})
+
+            openai.beta.threads.messages.create(
+                thread_id=st.session_state.file_thread_id,
+                role="user",
+                content=user_input
+            )
+
+            run = openai.beta.threads.runs.create(
+                thread_id=st.session_state.file_thread_id,
+                assistant_id=ASSISTANT_ID
+            )
+
+            with st.spinner("Assistant is typing..."):
+                while run.status not in ("completed", "failed"):
+                    time.sleep(1)
+                    run = openai.beta.threads.runs.retrieve(
+                        thread_id=st.session_state.file_thread_id,
+                        run_id=run.id
+                    )
+
+            if run.status == "completed":
+                messages = openai.beta.threads.messages.list(thread_id=st.session_state.file_thread_id)
+                response = next((msg.content[0].text.value for msg in messages.data if msg.role == "assistant"), "")
+
+                st.session_state.file_chat_messages.append({"role": "assistant", "content": response})
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+            else:
+                st.error("Assistant failed to respond. Please retry.")

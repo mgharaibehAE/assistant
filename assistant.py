@@ -137,7 +137,7 @@ with tab_docs:
 with tab_upload:
     st.header("Upload and Chat with Document")
 
-    uploaded_file = st.file_uploader("Upload a Word (.docx) or PDF (.pdf) file", type=["docx", "pdf"], accept_multiple_files=True)
+    uploaded_file = st.file_uploader("Upload a Word (.docx) or PDF (.pdf) file", type=["docx", "pdf"], accept_multiple_files=False)
 
     if uploaded_file:
         # Detect new file upload and reset session states
